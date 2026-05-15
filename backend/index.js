@@ -4,6 +4,7 @@ const { Pool } = require('pg')
 const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
+const { classifyImage } = require('./classifier')
 require('dotenv').config()
 
 const app = express()
@@ -41,15 +42,18 @@ app.post('/reports', upload.single('photo'), async (req, res) => {
     const { description, latitude, longitude, address } = req.body
     const photoUrl = req.file ? `/uploads/${req.file.filename}` : null
 
-    // Get routing rule
-    const issueType = req.body.issue_type || 'other'
+    let classification = { issue_type: 'other', severity: 'medium', notes: '' }
+    if (req.file) {
+      classification = await classifyImage(req.file.path, description || '')
+    }
+    const issueType = classification.issue_type
+
     const ruleResult = await db.query(
       'SELECT * FROM routing_rules WHERE issue_type = $1',
       [issueType]
     )
     const rule = ruleResult.rows[0] || { department: 'General Maintenance', sla_hours: 72 }
 
-    // Calculate SLA deadline
     const slaDeadline = new Date()
     slaDeadline.setHours(slaDeadline.getHours() + rule.sla_hours)
 
@@ -60,7 +64,7 @@ app.post('/reports', upload.single('photo'), async (req, res) => {
        RETURNING *`,
       [
         issueType,
-        req.body.severity || 'medium',
+        classification.severity,
         description,
         photoUrl,
         latitude,
@@ -70,7 +74,7 @@ app.post('/reports', upload.single('photo'), async (req, res) => {
         slaDeadline
       ]
     )
-    res.json(result.rows[0])
+    res.json({ ...result.rows[0], ai_notes: classification.notes })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: err.message })
