@@ -1,13 +1,174 @@
 const express = require('express')
 const cors = require('cors')
+const { Pool } = require('pg')
+const multer = require('multer')
+const path = require('path')
+const fs = require('fs')
 require('dotenv').config()
 
 const app = express()
 app.use(cors())
 app.use(express.json())
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', project: 'CivicPulse' })
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+})
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads'
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir)
+    cb(null, dir)
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname))
+  }
+})
+const upload = multer({ storage })
+
+app.use('/uploads', express.static('uploads'))
+
+// Health check
+app.get('/health', async (req, res) => {
+  const result = await db.query('SELECT NOW()')
+  res.json({ status: 'ok', time: result.rows[0].now })
+})
+
+// POST /reports — submit a new report
+app.post('/reports', upload.single('photo'), async (req, res) => {
+  try {
+    const { description, latitude, longitude, address } = req.body
+    const photoUrl = req.file ? `/uploads/${req.file.filename}` : null
+
+    // Get routing rule
+    const issueType = req.body.issue_type || 'other'
+    const ruleResult = await db.query(
+      'SELECT * FROM routing_rules WHERE issue_type = $1',
+      [issueType]
+    )
+    const rule = ruleResult.rows[0] || { department: 'General Maintenance', sla_hours: 72 }
+
+    // Calculate SLA deadline
+    const slaDeadline = new Date()
+    slaDeadline.setHours(slaDeadline.getHours() + rule.sla_hours)
+
+    const result = await db.query(
+      `INSERT INTO reports
+       (issue_type, severity, description, photo_url, latitude, longitude, address, department, sla_deadline)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        issueType,
+        req.body.severity || 'medium',
+        description,
+        photoUrl,
+        latitude,
+        longitude,
+        address,
+        rule.department,
+        slaDeadline
+      ]
+    )
+    res.json(result.rows[0])
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /reports — fetch all reports for the map
+app.get('/reports', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT id, issue_type, severity, status, description,
+             address, department, sla_deadline, created_at,
+             resolved_at, photo_url, latitude, longitude
+      FROM reports
+      ORDER BY created_at DESC
+    `)
+    res.json(result.rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /reports/:id — get single report
+app.get('/reports/:id', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT * FROM reports WHERE id = $1',
+      [req.params.id]
+    )
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' })
+    res.json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PATCH /reports/:id/resolve — mark a report as resolved
+app.patch('/reports/:id/resolve', async (req, res) => {
+  try {
+    const { id } = req.params
+    const now = new Date()
+
+    const reportResult = await db.query(
+      'SELECT * FROM reports WHERE id = $1', [id]
+    )
+    if (reportResult.rows.length === 0) return res.status(404).json({ error: 'Not found' })
+
+    const report = reportResult.rows[0]
+    const missedSla = now > new Date(report.sla_deadline)
+
+    await db.query(
+      `UPDATE reports SET status = 'resolved', resolved_at = $1 WHERE id = $2`,
+      [now, id]
+    )
+
+    if (missedSla) {
+      await db.query(
+        `UPDATE authorities SET missed_sla_count = missed_sla_count + 1
+         WHERE department = $1`,
+        [report.department]
+      )
+    } else {
+      await db.query(
+        `UPDATE authorities SET resolved_count = resolved_count + 1
+         WHERE department = $1`,
+        [report.department]
+      )
+    }
+
+    res.json({ success: true, missed_sla: missedSla })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /authorities/scorecard — leaderboard
+app.get('/authorities/scorecard', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT name, department,
+             resolved_count, missed_sla_count,
+             CASE
+               WHEN (resolved_count + missed_sla_count) = 0 THEN 0
+               ELSE ROUND(
+                 resolved_count::numeric /
+                 (resolved_count + missed_sla_count) * 100
+               )
+             END as score_pct
+      FROM authorities
+      ORDER BY score_pct DESC
+    `)
+    res.json(result.rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
 })
 
 const PORT = process.env.PORT || 4000
