@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Navbar from '../../components/Navbar'
 
 interface Authority {
   name: string
@@ -71,15 +72,7 @@ export default function ScorecardPage() {
       `}</style>
 
       <div style={{minHeight:'100vh',background:'var(--paper)'}}>
-        <nav className="nav">
-          <Link href="/" className="nav-brand">
-            <div className="nav-dot" />
-            <span className="nav-brand-text">CivicPulse</span>
-          </Link>
-          <Link href="/report" style={{fontSize:'12px',color:'var(--muted)',textDecoration:'none',letterSpacing:'0.06em',textTransform:'uppercase',fontWeight:500}}>
-            Report Issue →
-          </Link>
-        </nav>
+        <Navbar active="scorecard" />
 
         <div style={{maxWidth:'900px',margin:'0 auto',padding:'64px 24px'}}>
           <div style={{marginBottom:'48px'}}>

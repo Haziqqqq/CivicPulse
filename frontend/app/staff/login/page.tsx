@@ -18,7 +18,7 @@ export default function AdminLogin() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/admin')
+      router.push('/staff')
     }
   }
 
@@ -65,7 +65,7 @@ export default function AdminLogin() {
 
           {/* Center text */}
           <div style={{position:'relative'}}>
-            <div style={{fontSize:'11px',letterSpacing:'0.1em',textTransform:'uppercase',color:'rgba(255,255,255,0.3)',fontWeight:500,marginBottom:'24px'}}>— Admin Portal</div>
+            <div style={{fontSize:'11px',letterSpacing:'0.1em',textTransform:'uppercase',color:'rgba(255,255,255,0.3)',fontWeight:500,marginBottom:'24px'}}>— Staff Portal</div>
             <h1 className="display" style={{fontSize:'72px',lineHeight:0.9,color:'white',marginBottom:'24px'}}>
               MANAGE.<br/>
               RESOLVE.<br/>

@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import axios from 'axios'
+import Navbar from '../../components/Navbar'
 
 export default function ReportPage() {
   const [photo, setPhoto] = useState<File | null>(null)
@@ -171,15 +172,7 @@ export default function ReportPage() {
 
       <div style={{minHeight:'100vh',background:'var(--paper)'}}>
         {/* Nav */}
-        <nav className="nav">
-          <Link href="/" className="nav-brand">
-            <div className="nav-dot" />
-            <span className="nav-brand-text">CivicPulse</span>
-          </Link>
-          <Link href="/map" style={{fontSize:'12px',color:'var(--muted)',textDecoration:'none',letterSpacing:'0.06em',textTransform:'uppercase',fontWeight:500}}>
-            View Map →
-          </Link>
-        </nav>
+        <Navbar active="report" />
 
         <div style={{maxWidth:'560px',margin:'0 auto',padding:'64px 24px'}}>
           {/* Header */}

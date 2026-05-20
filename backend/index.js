@@ -5,7 +5,9 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const { classifyImage } = require('./classifier')
+const { sendReportNotification } = require('./emailService')
 require('dotenv').config()
+
 
 const app = express()
 app.use(cors())
@@ -74,6 +76,9 @@ app.post('/reports', upload.single('photo'), async (req, res) => {
         slaDeadline
       ]
     )
+    // Send email notification to department
+    sendReportNotification(result.rows[0])
+
     res.json({ ...result.rows[0], ai_notes: classification.notes })
   } catch (err) {
     console.error(err)
@@ -87,7 +92,7 @@ app.get('/reports', async (req, res) => {
     const result = await db.query(`
       SELECT id, issue_type, severity, status, description,
              address, department, sla_deadline, created_at,
-             resolved_at, photo_url, latitude, longitude
+             resolved_at, photo_url, latitude, longitude, notes
       FROM reports
       ORDER BY created_at DESC
     `)
@@ -112,7 +117,48 @@ app.get('/reports/:id', async (req, res) => {
   }
 })
 
-// PATCH /reports/:id/resolve — mark a report as resolved
+// PATCH /reports/:id/status — update report status
+app.patch('/reports/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status, notes } = req.body
+
+    const result = await db.query(
+      `UPDATE reports
+       SET status = $1::text,
+           notes = COALESCE($2::text, notes),
+           resolved_at = CASE WHEN $1::text = 'resolved' THEN NOW() ELSE resolved_at END
+       WHERE id = $3
+       RETURNING *`,
+      [status, notes || null, id]
+    )
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' })
+
+    if (status === 'resolved') {
+      const report = result.rows[0]
+      const missed = new Date() > new Date(report.sla_deadline)
+      if (missed) {
+        await db.query(
+          `UPDATE authorities SET missed_sla_count = missed_sla_count + 1 WHERE department = $1`,
+          [report.department]
+        )
+      } else {
+        await db.query(
+          `UPDATE authorities SET resolved_count = resolved_count + 1 WHERE department = $1`,
+          [report.department]
+        )
+      }
+    }
+
+    res.json(result.rows[0])
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// PATCH /reports/:id/resolve — mark a report as resolved (legacy)
 app.patch('/reports/:id/resolve', async (req, res) => {
   try {
     const { id } = req.params
@@ -133,14 +179,12 @@ app.patch('/reports/:id/resolve', async (req, res) => {
 
     if (missedSla) {
       await db.query(
-        `UPDATE authorities SET missed_sla_count = missed_sla_count + 1
-         WHERE department = $1`,
+        `UPDATE authorities SET missed_sla_count = missed_sla_count + 1 WHERE department = $1`,
         [report.department]
       )
     } else {
       await db.query(
-        `UPDATE authorities SET resolved_count = resolved_count + 1
-         WHERE department = $1`,
+        `UPDATE authorities SET resolved_count = resolved_count + 1 WHERE department = $1`,
         [report.department]
       )
     }
@@ -171,6 +215,39 @@ app.get('/authorities/scorecard', async (req, res) => {
     res.json(result.rows)
   } catch (err) {
     console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /staff/me — get staff profile by email
+app.get('/staff/me', async (req, res) => {
+  try {
+    const { email } = req.query
+    const result = await db.query(
+      'SELECT * FROM staff WHERE email = $1',
+      [email]
+    )
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Staff not found' })
+    res.json(result.rows[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// GET /reports/department/:dept — get reports for a specific department
+app.get('/reports/department/:dept', async (req, res) => {
+  try {
+    const { dept } = req.params
+    const result = await db.query(`
+      SELECT id, issue_type, severity, status, description,
+             address, department, sla_deadline, created_at,
+             resolved_at, photo_url, latitude, longitude, notes
+      FROM reports
+      WHERE department = $1
+      ORDER BY created_at DESC
+    `, [dept])
+    res.json(result.rows)
+  } catch (err) {
     res.status(500).json({ error: err.message })
   }
 })

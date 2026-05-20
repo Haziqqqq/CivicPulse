@@ -1,60 +1,38 @@
-const Anthropic = require('@anthropic-ai/sdk')
-const fs = require('fs')
-require('dotenv').config()
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
 async function classifyImage(imagePath, description = '') {
-  try {
-    const imageData = fs.readFileSync(imagePath)
-    const base64 = imageData.toString('base64')
-    const ext = imagePath.split('.').pop().toLowerCase()
-    const mediaType = ext === 'png' ? 'image/png' 
-    : ext === 'webp' ? 'image/webp' 
-    : 'image/jpeg'
+  const text = description.toLowerCase()
+  const filename = imagePath.toLowerCase()
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 300,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64 }
-          },
-          {
-            type: 'text',
-            text: `You are a civic infrastructure analyst.
-Analyse this photo of a public street issue.
-Citizen description: "${description}"
+  let issue_type = 'other'
+  let severity = 'medium'
 
-Respond in JSON only, no extra text:
-{
-  "issue_type": "pothole|streetlight|flooding|garbage|vandalism|other",
-  "severity": "low|medium|high|critical",
-  "confidence": 0.0-1.0,
-  "notes": "one sentence description of what you see"
-}`
-          }
-        ]
-      }]
-    })
-
-    const text = response.content[0].text.trim()
-    console.log('Claude response:', text)
-    return JSON.parse(text)
-
-  } catch (err) {
-    console.error('Classification error:', err.message)
-    // Fallback if Claude fails
-    return {
-      issue_type: 'other',
-      severity: 'medium',
-      confidence: 0.0,
-      notes: 'Auto-classification failed, manual review needed'
-    }
+  // Keyword-based classification from description
+  if (text.match(/pothole|hole|crack|road|tarmac|asphalt/)) {
+    issue_type = 'pothole'
+    severity = text.match(/large|huge|big|deep|severe|dangerous/) ? 'critical' : 'medium'
+  } else if (text.match(/flood|water|drain|puddle|overflow|waterlog/)) {
+    issue_type = 'flooding'
+    severity = text.match(/road|impass|block|cover/) ? 'critical' : 'high'
+  } else if (text.match(/light|lamp|streetlight|dark|broken light|no light/)) {
+    issue_type = 'streetlight'
+    severity = text.match(/school|hospital|junction|many/) ? 'high' : 'medium'
+  } else if (text.match(/garbage|trash|rubbish|waste|bin|litter|dump/)) {
+    issue_type = 'garbage'
+    severity = text.match(/large|everywhere|overflow|week/) ? 'high' : 'low'
+  } else if (text.match(/vandal|graffiti|damage|broken|destroy|smash/)) {
+    issue_type = 'vandalism'
+    severity = 'medium'
   }
+
+  // Override severity based on urgency words
+  if (text.match(/urgent|emergency|accident|dangerous|critical|immediately/)) {
+    severity = 'critical'
+  }
+
+  const notes = issue_type === 'other'
+    ? 'Could not classify from description — manual review recommended'
+    : `Classified as ${issue_type} (${severity}) based on description keywords`
+
+  return { issue_type, severity, confidence: 0.7, notes }
 }
 
 module.exports = { classifyImage }

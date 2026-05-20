@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import Navbar from '../../components/Navbar'
 
 const MapView = dynamic(() => import('../../components/MapView'), { ssr: false })
 
@@ -80,22 +81,7 @@ export default function MapPage() {
 
       <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--paper)'}}>
         {/* Nav */}
-        <nav className="nav">
-          <Link href="/" className="nav-brand">
-            <div className="nav-dot" />
-            <span className="nav-brand-text">CivicPulse</span>
-          </Link>
-          <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-            {['all','open','resolved'].map(f => (
-              <button key={f} className={`filter-btn ${filter===f?'active':''}`} onClick={() => setFilter(f)}>
-                {f === 'all' ? `All (${reports.length})` : f === 'open' ? `Open (${reports.filter(r=>r.status==='open').length})` : `Resolved (${reports.filter(r=>r.status==='resolved').length})`}
-              </button>
-            ))}
-            <Link href="/report" style={{marginLeft:'8px',background:'var(--accent)',color:'white',padding:'8px 20px',borderRadius:'2px',textDecoration:'none',fontSize:'11px',fontWeight:500,letterSpacing:'0.06em',textTransform:'uppercase'}}>
-              + Report
-            </Link>
-          </div>
-        </nav>
+        <Navbar active="map" />
 
         {/* Map + panel */}
         <div style={{flex:1,position:'relative',overflow:'hidden'}}>
