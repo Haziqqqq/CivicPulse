@@ -19,6 +19,8 @@ interface Report {
   longitude: number
   photo_url: string
   notes: string
+  duplicate_count: number
+  original_report_id: string | null
 }
 
 export default function AdminDashboard() {
@@ -162,7 +164,6 @@ export default function AdminDashboard() {
       `}</style>
 
       <div className="layout">
-        {/* SIDEBAR */}
         <aside className="sidebar">
           <div className="sidebar-logo">
             <div className="logo-icon">⚡</div>
@@ -173,29 +174,22 @@ export default function AdminDashboard() {
           </div>
 
           <div className="sidebar-section">Operations</div>
-<div className={`sidebar-item ${filter==='all'?'active':''}`} onClick={() => setFilter('all')}>
-  <span>📋</span>
-  Reports
-  {open.length > 0 && <span className="sidebar-badge">{open.length}</span>}
-</div>
-{inProgress.length > 0 && (
-  <div className={`sidebar-item ${filter==='in_progress'?'active':''}`} onClick={(e) => { e.stopPropagation(); setFilter('in_progress') }}>
-    <span>🔧</span>
-    In Progress
-    <span className="sidebar-badge yellow">{inProgress.length}</span>
-  </div>
-)}
-{overdue.length > 0 && (
-  <div
-    className={`sidebar-item ${filter==='overdue'?'active':''}`}
-    onClick={(e) => { e.stopPropagation(); setFilter('overdue') }}
-    style={{color: filter==='overdue'?'white':'#fca5a5', cursor:'pointer'}}
-  >
-    <span>⚠️</span>
-    Overdue
-    <span className="sidebar-badge orange">{overdue.length}</span>
-  </div>
-)}
+          <div className={`sidebar-item ${filter==='all'?'active':''}`} onClick={() => setFilter('all')}>
+            <span>📋</span>Reports
+            {open.length > 0 && <span className="sidebar-badge">{open.length}</span>}
+          </div>
+          {inProgress.length > 0 && (
+            <div className={`sidebar-item ${filter==='in_progress'?'active':''}`} onClick={(e) => { e.stopPropagation(); setFilter('in_progress') }}>
+              <span>🔧</span>In Progress
+              <span className="sidebar-badge yellow">{inProgress.length}</span>
+            </div>
+          )}
+          {overdue.length > 0 && (
+            <div className={`sidebar-item ${filter==='overdue'?'active':''}`} onClick={(e) => { e.stopPropagation(); setFilter('overdue') }} style={{color:filter==='overdue'?'white':'#fca5a5',cursor:'pointer'}}>
+              <span>⚠️</span>Overdue
+              <span className="sidebar-badge orange">{overdue.length}</span>
+            </div>
+          )}
 
           <div className="sidebar-section">Public</div>
           <Link href="/map" target="_blank" className="sidebar-item"><span>🗺️</span>Live Map</Link>
@@ -214,7 +208,6 @@ export default function AdminDashboard() {
           </div>
         </aside>
 
-        {/* MAIN */}
         <div className="main">
           <div className="topbar">
             <div>
@@ -299,7 +292,19 @@ export default function AdminDashboard() {
                       return (
                         <tr key={r.id} className={over?'overdue-row':''} onClick={() => setSelected(r)}>
                           <td>
-                            <div style={{fontWeight:500,textTransform:'capitalize'}}>{r.issue_type}</div>
+                            <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                              <div style={{fontWeight:500,textTransform:'capitalize'}}>{r.issue_type}</div>
+                              {r.duplicate_count > 0 && (
+                                <span style={{background:'#fff7ed',color:'#d97706',fontSize:'10px',fontWeight:600,padding:'1px 6px',borderRadius:'99px',whiteSpace:'nowrap'}}>
+                                  🔁 {r.duplicate_count}x
+                                </span>
+                              )}
+                              {r.original_report_id && (
+                                <span style={{background:'#f3f4f6',color:'#6b7280',fontSize:'10px',fontWeight:500,padding:'1px 6px',borderRadius:'99px',whiteSpace:'nowrap'}}>
+                                  duplicate
+                                </span>
+                              )}
+                            </div>
                             {r.description && <div style={{fontSize:'11px',color:'var(--muted)',marginTop:'2px',maxWidth:'180px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.description}</div>}
                           </td>
                           <td><span className="badge" style={{background:severityBg(r.severity),color:severityColor(r.severity)}}>{r.severity}</span></td>
@@ -314,20 +319,12 @@ export default function AdminDashboard() {
                           <td className="mono" style={{fontSize:'11px',color:'var(--muted)'}}>{new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</td>
                           <td onClick={e => e.stopPropagation()}>
                             {r.status==='open' && (
-                              <button
-                                className="resolve-btn"
-                                style={{background:'#d97706'}}
-                                onClick={(e) => { e.stopPropagation(); updateStatus(r.id,'in_progress') }}
-                              >
+                              <button className="resolve-btn" style={{background:'#d97706'}} onClick={(e) => { e.stopPropagation(); updateStatus(r.id,'in_progress') }}>
                                 🔧 Start
                               </button>
                             )}
                             {r.status==='in_progress' && (
-                              <button
-                                className="resolve-btn"
-                                onClick={(e) => { e.stopPropagation(); resolve(r.id) }}
-                                disabled={resolving===r.id}
-                              >
+                              <button className="resolve-btn" onClick={(e) => { e.stopPropagation(); resolve(r.id) }} disabled={resolving===r.id}>
                                 {resolving===r.id?'...':'✓ Resolve'}
                               </button>
                             )}
@@ -343,14 +340,20 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* DETAIL PANEL */}
         <div className={`detail-panel ${selected?'open':''}`}>
           {selected && (
             <>
               <div className="detail-header">
                 <div>
                   <div style={{fontSize:'11px',letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'6px'}}>Report Detail</div>
-                  <div style={{fontSize:'18px',fontWeight:600,textTransform:'capitalize'}}>{selected.issue_type}</div>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <div style={{fontSize:'18px',fontWeight:600,textTransform:'capitalize'}}>{selected.issue_type}</div>
+                    {selected.duplicate_count > 0 && (
+                      <span style={{background:'#fff7ed',color:'#d97706',fontSize:'11px',fontWeight:600,padding:'2px 8px',borderRadius:'99px'}}>
+                        🔁 {selected.duplicate_count}x reported
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button className="detail-close" onClick={() => setSelected(null)}>✕</button>
               </div>
@@ -359,11 +362,7 @@ export default function AdminDashboard() {
                 {selected.photo_url && (
                   <div>
                     <div className="detail-field-label">Photo</div>
-                    <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL}${selected.photo_url}`}
-                      alt="Report photo"
-                      style={{width:'100%',height:'180px',objectFit:'cover',borderRadius:'8px',border:'1px solid var(--border)'}}
-                    />
+                    <img src={`${process.env.NEXT_PUBLIC_API_URL}${selected.photo_url}`} alt="Report photo" style={{width:'100%',height:'180px',objectFit:'cover',borderRadius:'8px',border:'1px solid var(--border)'}} />
                   </div>
                 )}
 
@@ -390,6 +389,29 @@ export default function AdminDashboard() {
                     {isOverdue(selected) && selected.status!=='resolved' && <span style={{fontSize:'12px',marginLeft:'8px',color:'#dc2626'}}>⚠ OVERDUE</span>}
                   </div>
                 </div>
+
+                {selected.duplicate_count > 0 && (
+                  <div>
+                    <div className="detail-field-label">Community Reports</div>
+                    <div style={{background:'#fff7ed',border:'1px solid #fde68a',borderRadius:'6px',padding:'12px'}}>
+                      <div style={{fontSize:'14px',fontWeight:600,color:'#d97706',marginBottom:'4px'}}>
+                        🔁 {selected.duplicate_count + 1} citizens reported this issue
+                      </div>
+                      <div style={{fontSize:'12px',color:'#92400e',fontWeight:300,lineHeight:1.5}}>
+                        Multiple reports from the same area — this is a high-priority issue.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selected.original_report_id && (
+                  <div>
+                    <div className="detail-field-label">Report Type</div>
+                    <span style={{background:'#f3f4f6',color:'#6b7280',fontSize:'12px',padding:'4px 10px',borderRadius:'4px',fontWeight:500}}>
+                      Linked duplicate — part of a larger report cluster
+                    </span>
+                  </div>
+                )}
 
                 {selected.description && (
                   <div>
@@ -435,22 +457,12 @@ export default function AdminDashboard() {
                     <div style={{fontSize:'11px',letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--muted)',fontWeight:500}}>Update Status</div>
                     <div style={{display:'flex',gap:'8px'}}>
                       {selected.status === 'open' && (
-                        <button
-                          className="status-btn"
-                          onClick={() => updateStatus(selected.id, 'in_progress')}
-                          disabled={updatingStatus}
-                          style={{background:'#fffbeb',color:'#d97706',borderColor:'#fde68a'}}
-                        >
+                        <button className="status-btn" onClick={() => updateStatus(selected.id,'in_progress')} disabled={updatingStatus} style={{background:'#fffbeb',color:'#d97706',borderColor:'#fde68a'}}>
                           🔧 In Progress
                         </button>
                       )}
-                      <button
-                        className="status-btn"
-                        onClick={() => resolve(selected.id)}
-                        disabled={resolving === selected.id || updatingStatus}
-                        style={{background:'#16a34a',color:'white',border:'none'}}
-                      >
-                        {resolving === selected.id ? 'Resolving...' : '✓ Mark Resolved'}
+                      <button className="status-btn" onClick={() => resolve(selected.id)} disabled={resolving===selected.id||updatingStatus} style={{background:'#16a34a',color:'white',border:'none'}}>
+                        {resolving===selected.id?'Resolving...':'✓ Mark Resolved'}
                       </button>
                     </div>
                   </div>

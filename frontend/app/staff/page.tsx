@@ -33,29 +33,44 @@ export default function StaffDashboard() {
   const [selected, setSelected] = useState<Report | null>(null)
   const [updating, setUpdating] = useState(false)
   const [filter, setFilter] = useState('all')
+  const [error, setError] = useState('')
   const router = useRouter()
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { router.push('/staff/login'); return }
+      if (!data.user) {
+        router.push('/staff/login')
+        return
+      }
 
-      // Get staff profile
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/staff/me?email=${data.user.email}`)
-      const profile = res.data
-      setStaff(profile)
+      try {
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/staff/me?email=${encodeURIComponent(data.user.email!)}`)
+        const profile = res.data
+        setStaff(profile)
 
-      // If admin redirect to admin dashboard
-      if (profile.role === 'admin') { router.push('/admin'); return }
+        if (profile.role === 'admin') {
+          router.push('/admin')
+          return
+        }
 
-      // Load department reports
-      fetchReports(profile.department)
-    }).catch(() => router.push('/staff/login'))
+        const reportsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports/department/${encodeURIComponent(profile.department)}`)
+        setReports(reportsRes.data)
+        setLoading(false)
+      } catch (err: any) {
+        console.error('Staff error:', err?.response?.status, err?.response?.data)
+        setError(`Error ${err?.response?.status}: ${JSON.stringify(err?.response?.data)}`)
+        setLoading(false)
+      }
+    })
   }, [])
 
   const fetchReports = async (department: string) => {
-    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports/department/${encodeURIComponent(department)}`)
-    setReports(res.data)
-    setLoading(false)
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/reports/department/${encodeURIComponent(department)}`)
+      setReports(res.data)
+    } catch (err) {
+      console.error('Failed to fetch reports:', err)
+    }
   }
 
   const updateStatus = async (id: string, status: string) => {
@@ -97,6 +112,15 @@ export default function StaffDashboard() {
     </div>
   )
 
+  if (error) return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'#f9fafb',fontFamily:'DM Sans,sans-serif',flexDirection:'column',gap:'16px'}}>
+      <div style={{fontSize:'14px',color:'#dc2626',maxWidth:'500px',textAlign:'center'}}>{error}</div>
+      <button onClick={() => router.push('/staff/login')} style={{padding:'10px 20px',background:'#111827',color:'white',border:'none',borderRadius:'6px',cursor:'pointer',fontFamily:'DM Sans,sans-serif'}}>
+        Back to Login
+      </button>
+    </div>
+  )
+
   return (
     <>
       <style>{`
@@ -107,7 +131,7 @@ export default function StaffDashboard() {
         .mono { font-family:'DM Mono',monospace; }
         .topbar { background:white; border-bottom:1px solid var(--border); padding:16px 32px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
         .dept-badge { background:#f3f4f6; color:var(--ink); padding:6px 14px; border-radius:99px; font-size:12px; font-weight:500; }
-        .btn { padding:8px 16px; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; border:1px solid var(--border); background:white; color:var(--muted); transition:all 0.15s; }
+        .btn { padding:8px 16px; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; border:1px solid var(--border); background:white; color:var(--muted); transition:all 0.15s; text-decoration:none; display:inline-flex; align-items:center; }
         .btn:hover { border-color:#d1d5db; color:var(--ink); }
         .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; padding:24px 32px 0; }
         .stat { background:white; border:1px solid var(--border); border-radius:10px; padding:20px; }
@@ -117,6 +141,7 @@ export default function StaffDashboard() {
         .filter-tabs { display:flex; gap:4px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:4px; margin-bottom:16px; width:fit-content; }
         .tab { padding:7px 16px; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; border:none; background:transparent; color:var(--muted); font-family:'DM Sans',sans-serif; transition:all 0.15s; }
         .tab.active { background:white; color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+        .tab:hover:not(.active) { color:var(--ink); }
         .table-wrap { background:white; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
         .table-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
         table { width:100%; border-collapse:collapse; }
@@ -139,7 +164,6 @@ export default function StaffDashboard() {
       `}</style>
 
       <div style={{minHeight:'100vh',background:'var(--bg)'}}>
-        {/* Topbar */}
         <div className="topbar">
           <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
             <div style={{width:'32px',height:'32px',background:'#e63329',borderRadius:'6px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'16px'}}>⚡</div>
@@ -155,7 +179,6 @@ export default function StaffDashboard() {
           </div>
         </div>
 
-        {/* Stats */}
         <div className="stats">
           {[
             { label:'Total Assigned', value: reports.length, color:'var(--ink)' },
@@ -170,7 +193,6 @@ export default function StaffDashboard() {
           ))}
         </div>
 
-        {/* Content */}
         <div className="content">
           <div className="filter-tabs">
             {[
@@ -188,18 +210,14 @@ export default function StaffDashboard() {
 
           <div className="table-wrap">
             <div className="table-header">
-              <span style={{fontSize:'14px',fontWeight:600}}>
-                {staff?.department} — Reports
-              </span>
+              <span style={{fontSize:'14px',fontWeight:600}}>{staff?.department} — Reports</span>
               <span style={{fontSize:'12px',color:'var(--muted)',background:'var(--bg)',padding:'3px 10px',borderRadius:'99px',fontFamily:'DM Mono,monospace'}}>
                 {filtered.length} reports
               </span>
             </div>
 
             {filtered.length === 0 ? (
-              <div style={{padding:'48px',textAlign:'center',color:'var(--muted)',fontSize:'14px'}}>
-                No reports found. 🎉
-              </div>
+              <div style={{padding:'48px',textAlign:'center',color:'var(--muted)',fontSize:'14px'}}>No reports found. 🎉</div>
             ) : (
               <table>
                 <thead>
@@ -256,7 +274,6 @@ export default function StaffDashboard() {
         </div>
       </div>
 
-      {/* Detail panel */}
       <div className={`detail-panel ${selected?'open':''}`}>
         {selected && (
           <>

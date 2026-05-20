@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import Navbar from '../../components/Navbar'
 
@@ -18,6 +17,8 @@ interface Report {
   created_at: string
   latitude: number
   longitude: number
+  duplicate_count: number
+  original_report_id: string | null
 }
 
 export default function MapPage() {
@@ -58,18 +59,13 @@ export default function MapPage() {
         body { font-family:'DM Sans',sans-serif; }
         .mono { font-family:'DM Mono',monospace; }
         .display { font-family:'Bebas Neue',sans-serif; }
-        .nav { display:flex; align-items:center; justify-content:space-between; padding:16px 32px; border-bottom:1px solid var(--border); background:var(--paper); z-index:1000; position:relative; }
-        .nav-brand { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink); }
-        .nav-dot { width:10px; height:10px; background:var(--accent); border-radius:50%; animation:pulse 2s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        .nav-brand-text { font-size:15px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; }
-        .filter-btn { padding:8px 16px; border:1px solid var(--border); border-radius:2px; background:white; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; transition:all 0.15s; color:var(--muted); }
+        .filter-btn { padding:8px 16px; border:1px solid var(--border); border-radius:2px; background:white; font-size:11px; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; transition:all 0.15s; color:var(--muted); font-family:'DM Sans',sans-serif; }
         .filter-btn.active { background:var(--ink); color:white; border-color:var(--ink); }
         .filter-btn:hover:not(.active) { border-color:var(--ink); color:var(--ink); }
         .panel { position:absolute; right:0; top:0; bottom:0; width:340px; background:var(--paper); border-left:1px solid var(--border); overflow-y:auto; z-index:500; transform:translateX(100%); transition:transform 0.3s ease; }
         .panel.open { transform:translateX(0); }
         .panel-header { padding:24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; }
-        .panel-close { background:none; border:1px solid var(--border); border-radius:2px; padding:6px 12px; cursor:pointer; font-size:12px; color:var(--muted); }
+        .panel-close { background:none; border:1px solid var(--border); border-radius:2px; padding:6px 12px; cursor:pointer; font-size:12px; color:var(--muted); font-family:'DM Sans',sans-serif; }
         .panel-field { padding:16px 24px; border-bottom:1px solid var(--border); }
         .panel-label { font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); font-weight:500; margin-bottom:6px; }
         .panel-value { font-size:14px; font-weight:500; }
@@ -80,10 +76,22 @@ export default function MapPage() {
       `}</style>
 
       <div style={{height:'100vh',display:'flex',flexDirection:'column',background:'var(--paper)'}}>
-        {/* Nav */}
         <Navbar active="map" />
 
-        {/* Map + panel */}
+        {/* Filter bar */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 24px',borderBottom:'1px solid var(--border)',background:'var(--paper)',zIndex:100,position:'relative'}}>
+          <div style={{display:'flex',gap:'8px'}}>
+            {['all','open','resolved'].map(f => (
+              <button key={f} className={`filter-btn ${filter===f?'active':''}`} onClick={() => setFilter(f)}>
+                {f==='all'?`All (${reports.length})`:f==='open'?`Open (${reports.filter(r=>r.status==='open').length})`:`Resolved (${reports.filter(r=>r.status==='resolved').length})`}
+              </button>
+            ))}
+          </div>
+          <a href="/report" style={{background:'var(--accent)',color:'white',padding:'8px 20px',borderRadius:'2px',textDecoration:'none',fontSize:'11px',fontWeight:500,letterSpacing:'0.06em',textTransform:'uppercase'}}>
+            + Report
+          </a>
+        </div>
+
         <div style={{flex:1,position:'relative',overflow:'hidden'}}>
           {loading ? (
             <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--muted)',fontSize:'14px'}}>
@@ -110,13 +118,18 @@ export default function MapPage() {
           </div>
 
           {/* Detail panel */}
-          <div className={`panel ${selected ? 'open' : ''}`}>
+          <div className={`panel ${selected?'open':''}`}>
             {selected && (
               <>
                 <div className="panel-header">
                   <div>
                     <div style={{fontSize:'11px',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--muted)',fontWeight:500,marginBottom:'8px'}}>Report Detail</div>
                     <div className="display" style={{fontSize:'28px',textTransform:'capitalize'}}>{selected.issue_type}</div>
+                    {selected.duplicate_count > 0 && (
+                      <div style={{marginTop:'6px',display:'inline-flex',alignItems:'center',gap:'6px',background:'#fff7ed',border:'1px solid #fde68a',borderRadius:'4px',padding:'3px 10px',fontSize:'12px',color:'#d97706',fontWeight:500}}>
+                        🔁 {selected.duplicate_count + 1} citizens reported this
+                      </div>
+                    )}
                   </div>
                   <button className="panel-close" onClick={() => setSelected(null)}>✕ Close</button>
                 </div>
@@ -128,7 +141,7 @@ export default function MapPage() {
 
                 <div className="panel-field">
                   <div className="panel-label">Status</div>
-                  <div className="panel-value" style={{color: selected.status === 'resolved' ? '#1a7a4a' : '#e63329', textTransform:'uppercase', fontSize:'13px', letterSpacing:'0.06em'}}>{selected.status}</div>
+                  <div className="panel-value" style={{color:selected.status==='resolved'?'#1a7a4a':'#e63329',textTransform:'uppercase',fontSize:'13px',letterSpacing:'0.06em'}}>{selected.status}</div>
                 </div>
 
                 <div className="panel-field">
@@ -138,9 +151,9 @@ export default function MapPage() {
 
                 <div className="panel-field">
                   <div className="panel-label">SLA Deadline</div>
-                  <div className={`countdown ${isOverdue(selected.sla_deadline) && selected.status !== 'resolved' ? 'overdue' : 'ok'} mono`}>
-                    {new Date(selected.sla_deadline).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}
-                    {isOverdue(selected.sla_deadline) && selected.status !== 'resolved' && ' ⚠ OVERDUE'}
+                  <div className={`countdown ${isOverdue(selected.sla_deadline)&&selected.status!=='resolved'?'overdue':'ok'} mono`}>
+                    {new Date(selected.sla_deadline).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
+                    {isOverdue(selected.sla_deadline)&&selected.status!=='resolved'&&' ⚠ OVERDUE'}
                   </div>
                 </div>
 
@@ -148,6 +161,20 @@ export default function MapPage() {
                   <div className="panel-field">
                     <div className="panel-label">Description</div>
                     <div style={{fontSize:'13px',color:'#444',fontWeight:300,lineHeight:1.6}}>{selected.description}</div>
+                  </div>
+                )}
+
+                {selected.duplicate_count > 0 && (
+                  <div className="panel-field">
+                    <div className="panel-label">Community Reports</div>
+                    <div style={{background:'#fff7ed',border:'1px solid #fde68a',borderRadius:'4px',padding:'10px 12px'}}>
+                      <div style={{fontSize:'13px',fontWeight:600,color:'#d97706',marginBottom:'4px'}}>
+                        🔁 {selected.duplicate_count + 1} people reported this issue
+                      </div>
+                      <div style={{fontSize:'12px',color:'#92400e',fontWeight:300,lineHeight:1.5}}>
+                        Multiple reports from the same area indicate a significant problem.
+                      </div>
+                    </div>
                   </div>
                 )}
 
