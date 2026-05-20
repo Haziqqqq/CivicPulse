@@ -15,6 +15,8 @@ interface Report {
   created_at: string
   latitude: number
   longitude: number
+  duplicate_count: number
+  original_report_id: string | null
 }
 
 function FitBounds({ reports }: { reports: Report[] }) {

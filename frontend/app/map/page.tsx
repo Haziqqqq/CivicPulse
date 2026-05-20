@@ -98,7 +98,7 @@ export default function MapPage() {
               Loading map...
             </div>
           ) : (
-            <MapView reports={filtered} onSelect={setSelected} severityColor={severityColor} />
+            <MapView reports={filtered} onSelect={(r) => setSelected(r)} severityColor={severityColor} />
           )}
 
           {/* Count badge */}
