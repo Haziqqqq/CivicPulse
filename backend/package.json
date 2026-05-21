@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "inference": "python -m uvicorn inference.app:app --host 127.0.0.1 --port 8000",
+    "install:python": "python3 -m pip install -r requirements.txt || python -m pip install -r requirements.txt",
+    "postinstall": "npm run install:python",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

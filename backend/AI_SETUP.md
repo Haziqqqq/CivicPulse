@@ -40,12 +40,27 @@ AI_MODEL_PATH=./models/best.pt
 python ai/infer.py path\to\photo.jpg
 ```
 
-## Deploy (single backend folder)
+## Deploy (Render / single backend folder)
 
-1. Upload `backend/` including `models/best.pt`
-2. Install Python 3.10+ and `pip install -r requirements.txt` on the server
-3. `npm install && npm start`
-4. Set `DATABASE_URL` and CORS origins in production
+**Root directory:** `backend`
+
+**Build command** (if not using `postinstall`):
+
+```bash
+npm install && pip install -r requirements.txt
+```
+
+(`npm install` alone also runs `postinstall` → installs Python deps including `pyyaml`.)
+
+**Start command:** `npm start`
+
+**Python on Render:** use a Node service with Python available (default on Render), or Docker. Set `AI_PYTHON=python3`.
+
+1. `models/best.pt` is in the repo (or copy manually)
+2. Env vars: see `.env.example` (`AI_ENABLED`, `AI_MODEL_PATH`, etc.)
+3. `DATABASE_URL` and CORS origins in production
+
+**Error `No module named 'yaml'`:** Python deps were not installed — fix build command above and redeploy.
 
 Optional HTTP mode: run `npm run inference` alongside Node and set `INFERENCE_MODE=http`.
 
