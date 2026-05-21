@@ -1,17 +1,7 @@
 # Model weights
 
-Place your trained YOLO weights here:
+`best.pt` is committed in this repo (~64MB) so Render/deploy gets weights on `git pull`.
 
-```
-models/best.pt
-```
+To replace after retraining, overwrite `models/best.pt` and commit.
 
-Copy from your training project:
-
-```powershell
-copy "..\..\..\..\models\best.pt" "models\best.pt"
-```
-
-Or from Google Drive after Colab training.
-
-The server will not run vision AI until this file exists (keyword fallback still works).
+The server falls back to keyword classification if this file is missing.

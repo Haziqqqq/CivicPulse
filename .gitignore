@@ -18,8 +18,7 @@ frontend/.env.local
 backend/uploads/
 *.log
 
-# AI weights (large — use README + Drive; optional: use Git LFS)
-backend/models/*.pt
+# AI weights — best.pt is tracked in git for deploy (~64MB)
 
 # Python
 __pycache__/
