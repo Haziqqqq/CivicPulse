@@ -141,8 +141,10 @@ export default function ReportPage() {
               {[
                 { label:'Issue Type', value: result.issue_type?.toUpperCase() },
                 { label:'Severity', value: result.severity?.toUpperCase() },
+                { label:'Repair Priority', value: result.repair_priority || '—' },
                 { label:'Department', value: result.department },
                 { label:'SLA Deadline', value: new Date(result.sla_deadline).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) },
+                { label:'Detections', value: result.detections?.length != null ? String(result.detections.length) : '—' },
               ].map((item) => (
                 <div key={item.label}>
                   <div style={{fontSize:'10px',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--muted)',marginBottom:'6px',fontWeight:500}}>{item.label}</div>

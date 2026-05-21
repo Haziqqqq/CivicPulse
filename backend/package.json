@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "inference": "python -m uvicorn inference.app:app --host 127.0.0.1 --port 8000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,6 +17,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "form-data": "^4.0.5",
     "multer": "^2.1.1",
     "pg": "^8.20.0",
     "resend": "^6.12.3"

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# Uploads & runtime
+backend/uploads/
+*.log
+
+# AI weights (large — use README + Drive; optional: use Git LFS)
+backend/models/*.pt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Mobile (optional — remove if you want mobile in repo)
+# mobile is included by default

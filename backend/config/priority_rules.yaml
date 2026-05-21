@@ -1,0 +1,37 @@
+# Priority scoring — tune with maintenance stakeholders
+
+class_weights:
+  Pothole: 0.85
+  pothole: 0.85
+  Sewage-Manhole: 0.75
+  manhole_damage: 0.75
+  crack_longitudinal: 0.45
+  crack_alligator: 0.55
+  patch_failure: 0.60
+  guardrail_damage: 0.90
+  sign_damage: 0.70
+  flooding: 0.80
+  debris: 0.65
+
+size_thresholds:
+  minor_max: 0.005
+  moderate_max: 0.02
+
+size_multipliers:
+  minor: 0.7
+  moderate: 1.0
+  severe: 1.35
+
+road_class_multipliers:
+  arterial: 1.25
+  collector: 1.1
+  local: 0.95
+  unknown: 1.0
+
+priority_bands:
+  P1: 0.75
+  P2: 0.55
+  P3: 0.35
+
+min_confidence: 0.35
+review_confidence: 0.50

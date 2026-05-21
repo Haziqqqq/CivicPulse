@@ -80,7 +80,15 @@ app.get('/reports/department/:dept', async (req, res) => {
 // Health check
 app.get('/health', async (req, res) => {
   const result = await db.query('SELECT NOW()')
-  res.json({ status: 'ok', time: result.rows[0].now })
+  const modelPath = process.env.AI_MODEL_PATH || path.join(__dirname, 'models', 'best.pt')
+  res.json({
+    status: 'ok',
+    time: result.rows[0].now,
+    ai_enabled: process.env.AI_ENABLED !== 'false',
+    ai_mode: process.env.INFERENCE_MODE || 'subprocess',
+    model_exists: fs.existsSync(modelPath),
+    model_path: modelPath,
+  })
 })
 
 // POST /reports — submit a new report with smart duplicate detection
@@ -92,7 +100,9 @@ app.post('/reports', upload.single('photo'), async (req, res) => {
     // Classify the image
     let classification = { issue_type: 'other', severity: 'medium', notes: '' }
     if (req.file) {
-      classification = await classifyImage(req.file.path, description || '')
+      classification = await classifyImage(req.file.path, description || '', {
+        road_class: 'unknown',
+      })
     } else if (description) {
       classification = await classifyImage('', description)
     }
@@ -176,6 +186,9 @@ app.post('/reports', upload.single('photo'), async (req, res) => {
       return res.json({
         ...result.rows[0],
         ai_notes: classification.notes,
+        repair_priority: classification.repair_priority || null,
+        detections: classification.detections || [],
+        ai_source: classification.ai_source || null,
         is_duplicate: true,
         original_id: duplicateOf.id,
         duplicate_count: duplicateOf.duplicate_count + 1,
@@ -202,6 +215,9 @@ app.post('/reports', upload.single('photo'), async (req, res) => {
     res.json({
       ...result.rows[0],
       ai_notes: classification.notes,
+      repair_priority: classification.repair_priority || null,
+      detections: classification.detections || [],
+      ai_source: classification.ai_source || null,
       is_duplicate: false
     })
 
